@@ -26,12 +26,21 @@ from sentence_transformers.evaluation import EmbeddingSimilarityEvaluator
 # -------------------------
 DATA_PATH = Path("dataset/stsbenchmark.tsv.gz")
 MODEL_NAME = "bert-base-uncased"
-SAVE_PATH = Path("models/scenario1_model")
+SAVE_PATH = Path("models/bi_encoder_with_aug")
+LOG_PATH = Path("logs/bi_encoder_with_aug.log")
 BATCH_SIZE = 32
-NUM_EPOCHS = 10
+NUM_EPOCHS = 5
 AUGMENTATION_ACTION = "insert"
 
-logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO)
+LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+logging.basicConfig(
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    level=logging.INFO,
+    handlers=[
+        logging.FileHandler(LOG_PATH),
+        logging.StreamHandler()
+    ]
+)
 
 
 def download_dataset(path: Path):

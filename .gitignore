@@ -135,6 +135,8 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+models/
+models/bi_encoder_with_aug/
 
 # Spyder project settings
 .spyderproject
