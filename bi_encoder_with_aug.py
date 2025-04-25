@@ -24,7 +24,7 @@ from sentence_transformers.evaluation import EmbeddingSimilarityEvaluator
 # -------------------------
 # Configuration
 # -------------------------
-DATA_PATH = Path("dataset/stsbenchmark.tsv.gz")
+DATA_PATH = Path("datasets/stsbenchmark.tsv.gz")
 MODEL_NAME = "bert-base-uncased"
 SAVE_PATH = Path("models/bi_encoder_with_aug")
 LOG_PATH = Path("logs/bi_encoder_with_aug.log")

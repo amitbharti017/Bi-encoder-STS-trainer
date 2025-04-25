@@ -18,9 +18,9 @@ from typing import List
 MODEL_NAME = 'bert-base-uncased'
 BATCH_SIZE = 32
 NUM_EPOCHS = 5
-DATA_PATH = 'datasets/stsbenchmark.tsv.gz'
-CROSS_ENCODER_PATH = 'models/cross_encoder_model'
-BI_ENCODER_PATH = 'models/bi_encoder_model_after_cross_encoder'
+DATA_PATH = Path('datasets/stsbenchmark.tsv.gz')
+CROSS_ENCODER_PATH = Path('models/cross_encoder_model')
+BI_ENCODER_PATH = ('models/bi_encoder_model_after_cross_encoder')
 LOG_PATH = Path("logs/semi_supervised_bi_encoder.log")
 TOP_K = 3 #similar sentences to retrieve
 
@@ -44,7 +44,7 @@ def download_dataset(path: Path):
 def load_dataset(path: Path):
     train, validation = [],[]
     with gzip.open(path,'rt',encoding='utf-8') as f:
-        reader = csv.DictReader(f,delimiter='/t',quoting=csv.QUOTE_NONE)
+        reader = csv.DictReader(f,delimiter='\t',quoting=csv.QUOTE_NONE)
         for row in reader:
             # Ensuring symmetric pairs, i.e. CrossEncoder(A,B) = CrossEncoder(B,A)
             # This ensure that each pair in the training dataset is symmetric, as cross encoder should generate the same similarity score for them
@@ -96,19 +96,57 @@ def create_silver_pairs_for_labeling(train_data: List[InputExample]):
     #computing cosine similarity with each sentence in the dataset and retrieving top-k most similar sentences
     for idx in tqdm(range(len(sentences)),unit="docs"):
         sentence_embedding = embeddings[idx]
-        
+        cos_scores = util.cos_sim(sentence_embedding,embeddings)[0]
+        print(cos_scores)
+        cos_scores = cos_scores.cpu()
 
+        #retrieve the top-k most similar sentences (excluding the sentence itself)
+        top_results = torch.topk(cos_scores,k=TOP_K+1) #adding 1 to remove similarity from its own value
+        # print(top_results.shape())
+        # print(top_results)
 
+        for score,iid in zip(top_results[0],top_results[1]):
+            # top_results[0] provide the values
+            # top_results[1] provide the indices
+            iid = iid.item()
+            if iid != idx and (iid,idx) not in duplicates:
+                augmented.append((sentences[idx],sentences[iid]))
+                duplicates.add((idx,iid))
+    return augmented
+def labeling_data(augmented_data):
+    cross_encoder = CrossEncoder(CROSS_ENCODER_PATH)
+    silver_scores = cross_encoder.predict(augmented_data)
+    #prepare silver samples in the required format
+    aug_samples = [InputExample(texts = [pair[0],pair[1]],label=score) for pair,score in zip(augmented_data,silver_scores)]
+    return aug_samples
+def build_bi_encoder_model(model_name: str) -> SentenceTransformer:
+    word_embedding_model = models.Transformer(model_name)
+    pooling_model = models.Pooling(
+        word_embedding_model.get_word_embedding_dimension(),
+        pooling_mode_mean_tokens=True
+    )
+    return SentenceTransformer(modules=[word_embedding_model, pooling_model])
+def train_bi_encoder_model(train_data: List[InputExample], validation_data: List[InputExample], bi_encoder_model: SentenceTransformer):
+    logging.info("Starting model training...")
+    train_dataset = SentencesDataset(train_data, bi_encoder_model)
+    train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=BATCH_SIZE)
+    train_loss = losses.CosineSimilarityLoss(model=bi_encoder_model)
+    evaluator = EmbeddingSimilarityEvaluator.from_input_examples(validation_data, name="sts-dev")
 
-
- 
-
-
-
+    bi_encoder_model.fit(
+        train_objectives=[(train_dataloader, train_loss)],
+        evaluator=evaluator,
+        epochs=NUM_EPOCHS,
+        evaluation_steps=1000,
+        output_path=str(BI_ENCODER_PATH)
+    )
 
 if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     download_dataset(DATA_PATH)
     train_examples, val_examples = load_dataset(DATA_PATH)
     trained_cross_encoder = train_cross_encoder_model(train_examples,val_examples)
-    create_silver_pairs_for_labeling(train_examples)
+    augmented = create_silver_pairs_for_labeling(train_examples)
+    silver_data_label = labeling_data(augmented)
+    bi_encoder_model = build_bi_encoder_model(MODEL_NAME)
+    train_bi_encoder_model(train_examples + silver_data_label, val_examples, bi_encoder_model)
