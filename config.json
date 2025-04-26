@@ -1,0 +1,14 @@
+{
+    "DATA_PATH_STS": "datasets/stsbenchmark.tsv.gz",
+    "TRAIN_DATA_PATH_QUORA": "datasets/train_quora_corpus.json",
+    "BI_ENCODER_MODEL": "sentence-transformers/all-MiniLM-L6-v2",
+    "CROSS_ENCODER_MODEL": "cross-encoder/ms-marco-MiniLM-L6-v2",
+    "CROSS_ENCODER_TRAINED_MODEL": "models/unsupervised/cross_encoder_model",
+    "BI_ENCODER_TRAINED_MODEL": "models/unsupervised/bi_encoder_model",
+    "SAVE_PATH": "models/unsupervised_learning",
+    "LOG_PATH": "logs/unsupervised_learning.log",
+    "BATCH_SIZE": 32,
+    "NUM_EPOCHS": 10,
+    "AUGMENTATION_ACTION": "insert",
+    "TOP_K": 1
+}
