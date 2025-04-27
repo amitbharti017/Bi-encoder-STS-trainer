@@ -110,8 +110,9 @@ def load_quora_dataset(path: Path):
                 quora_two_sentences.add(pair)
     quora_two_sentences = list(quora_two_sentences)
     length = len(quora_two_sentences)
-    train_quora = quora_two_sentences[:0.8*length]
-    validation_quora = quora_two_sentences[0.8*length:]
+    split_idx = int(0.8*length)
+    train_quora = quora_two_sentences[:split_idx]
+    validation_quora = quora_two_sentences[split_idx:]
     return train_quora, validation_quora
 
 def weak_quora_labels(data):
